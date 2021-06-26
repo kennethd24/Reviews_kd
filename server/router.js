@@ -2,7 +2,7 @@ const router = require('express').Router();
 const dbHelpers = require('../database/dbHelpers');
 
 // GET /reviews/
-router.get('/reviews/:productId/:count', dbHelpers.reviews.getReviews);
+router.get('/reviews/:productId?/:count?/:page?/', dbHelpers.reviews.getReviews);
 
 // GET /reviews/meta
 
