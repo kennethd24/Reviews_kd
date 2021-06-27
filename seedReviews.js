@@ -1,23 +1,23 @@
-const config = '../config/config.js';
+const config = './config';
 const { Client } = require('pg');
 const csv = require('csv-parse');
 const copyFrom = require('pg-copy-streams').from;
 const fs = require('fs');
 const path = require('path');
 
-const client = new Client(config);
+const client = new Client(config.postgres);
 
 client.connect((err) => (err ? console.error(err) : console.log('Database Success')));
 
-const filePath = path.join(__dirname, '../../csvFiles/reviews/reviews.csv');
+const filePath = path.join(__dirname, './reviewsCSV/reviews.csv');
 const reviews = 'reviews';
 const createTable = `
 DROP TABLE IF EXISTS ${reviews};
 CREATE TABLE IF NOT EXISTS ${reviews} (
-  id SERIAL,
+  review_id SERIAL,
   product_id INTEGER DEFAULT NULL,
   rating INTEGER DEFAULT NULL,
-  created_at BIGINT DEFAULT NULL,
+  date BIGINT DEFAULT NULL,
   summary TEXT DEFAULT NULL,
   body TEXT DEFAULT NULL,
   recommend BOOLEAN DEFAULT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS ${reviews} (
   helpfulness INTEGER DEFAULT NULL
 );`;
 
-client.query(createTable).then((res) => {
+client.query(createTable).then(() => {
   console.log('Table successfully created!!!');
 });
 

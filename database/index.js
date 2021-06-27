@@ -1,10 +1,11 @@
-// const { Pool } = require('pg');
-// const config = require '../config/config.js';
+const { Pool } = require('pg');
+const config = require('../config');
 
-// const pool = new Pool({ config });
+const pool = new Pool(config.postgres);
 
-// pool.connect((err) => {
-//   err ? console.error(err) : console.log('Database connected');
-// });
+pool.connect((err) => (
+  // eslint-disable-next-line no-console
+  err ? console.error(err) : console.log('PostgreSQL Database Connected')
+));
 
-// module.exports = pool;
+module.exports = pool;

@@ -5,8 +5,10 @@ const dbHelpers = require('../database/dbHelpers');
 router.get('/reviews/:productId?/:count?/:page?/', dbHelpers.reviews.getReviews);
 
 // GET /reviews/meta
+router.get('/reviews/meta/:productId', dbHelpers.reviews.getMetadata);
 
 // POST /reviews
+router.post('/reviews', dbHelpers.reviews.postReview);
 
 // PUT /reviews/:review_id/helpful
 router.put('/reviews/:reviewId/helpful', dbHelpers.reviews.updateHelpfulReview);

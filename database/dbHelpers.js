@@ -1,8 +1,4 @@
-const { Pool, Client } = require('pg');
-const config = require('../config');
-
-const pool = new Pool(config.postgres);
-pool.connect();
+const pool = require('./index');
 
 const dbHelpers = {
   reviews: {
@@ -14,7 +10,7 @@ const dbHelpers = {
       const qryStr = `
       SELECT array_to_json(array_agg(row_to_json(t))) AS results
       FROM(
-        SELECT product_id, review_id, rating, body, recommend, reviewer_name, reviewer_email, helpfulness,
+        SELECT product_id, review_id, rating, body, date, recommend, reviewer_name, reviewer_email, helpfulness,
       (
         SELECT array_to_json(array_agg(row_to_json(x)))
         FROM (
@@ -26,13 +22,45 @@ const dbHelpers = {
       ) AS photos
         FROM reviews
         WHERE product_id = ${productId} AND reported = false
+        ORDER BY date DESC
         LIMIT ${count}
         OFFSET ${count * (page - 1)}
         )t
       `;
       pool.query(qryStr)
         .then((results) => {
-          res.status(200).send(results.rows);
+          res.status(200).send(results.rows[0]);
+        })
+        .catch((err) => {
+          res.status(400).send(err);
+        });
+    },
+    getMetadata: (req, res) => {
+      const { productId } = req.params;
+      const qryStr = '';
+      pool.query(qryStr)
+        .then((results) => {
+          res.status(200).send(results);
+        })
+        .catch((err) => {
+          res.status(400).send(err);
+        });
+    },
+    postReview: (req, res) => {
+      const {
+        productId,
+        rating,
+        summary,
+        body,
+        recommend,
+        name,
+        email,
+        photos,
+        characteristics,
+      } = req.body;
+      pool.query(qryStr)
+        .then(() => {
+          res.status(200).send('Successful postReview');
         })
         .catch((err) => {
           res.status(400).send(err);
