@@ -8,15 +8,13 @@ const dbHelpers = {
       const page = req.params.page || 1;
       // const sort = req.params.sort || 'relevant';
       const qryStr = `
-      SELECT array_to_json(array_agg(row_to_json(t))) AS results
-      FROM(
-        SELECT product_id, review_id, rating, body, date, recommend, reviewer_name, reviewer_email, helpfulness,
+        SELECT product_id, id, rating, body, date, recommend, reviewer_name, reviewer_email, helpfulness,
       (
         SELECT array_to_json(array_agg(row_to_json(x)))
         FROM (
           SELECT id, url
           FROM reviews_photos
-          WHERE reviews_photos.review_id = reviews.review_id
+          WHERE reviews_photos.review_id = reviews.id
           ORDER BY id ASC
         )x
       ) AS photos
@@ -25,11 +23,15 @@ const dbHelpers = {
         ORDER BY date DESC
         LIMIT ${count}
         OFFSET ${count * (page - 1)}
-        )t
       `;
       pool.query(qryStr)
-        .then((results) => {
-          res.status(200).send(results.rows[0]);
+        .then((results1) => {
+          const reviewsObj = {};
+          reviewsObj.product = productId;
+          reviewsObj.page = page;
+          reviewsObj.count = count;
+          reviewsObj.results = results1.rows;
+          res.status(200).json(reviewsObj);
         })
         .catch((err) => {
           res.status(400).send(err);
@@ -40,7 +42,12 @@ const dbHelpers = {
       const qryStr = '';
       pool.query(qryStr)
         .then((results) => {
-          res.status(200).send(results);
+          const metaDataObj = {};
+          metaDataObj.product_id = productId;
+          metaDataObj.ratings = placeholder;
+          metaDataObj.recommended = placeholder;
+          metaDataObj.characteristics = placeholder;
+          res.status(200).json(metaDataObj);
         })
         .catch((err) => {
           res.status(400).send(err);
