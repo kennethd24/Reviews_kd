@@ -25,12 +25,12 @@ const dbHelpers = {
         OFFSET ${count * (page - 1)}
       `;
       pool.query(qryStr)
-        .then((results1) => {
+        .then((resultsQuery) => {
           const reviewsObj = {};
           reviewsObj.product = productId;
           reviewsObj.page = page;
           reviewsObj.count = count;
-          reviewsObj.results = results1.rows;
+          reviewsObj.results = resultsQuery.rows;
           res.status(200).json(reviewsObj);
         })
         .catch((err) => {
@@ -39,15 +39,53 @@ const dbHelpers = {
     },
     getMetadata: (req, res) => {
       const { productId } = req.params;
-      const qryStr = '';
+      const qryStr = `
+      SELECT row_to_json(t) as queryResults
+      FROM (
+        select product_id,
+        (
+          SELECT json_object_agg(rating, sumRatings) as ratings
+          FROM (
+            SELECT rating,
+              COUNT(*) AS sumRatings
+                FROM reviews
+                WHERE product_id = ${productId}
+                GROUP BY rating
+                ORDER BY rating ASC
+          )x
+        ),
+        (
+          SELECT json_object_agg(recommend, counts) as recommended
+          FROM (
+            SELECT recommend,
+              COUNT(*) as counts
+              FROM reviews
+              WHERE product_id = ${productId}
+              GROUP BY recommend
+              ORDER BY recommend ASC
+          )u
+        ),
+        (
+          SELECT json_object_agg(name, charDetails) AS characteristics
+          FROM (
+            SELECT name
+            , json_build_object(
+          'id', characteristics.id, 'value', AVG(value)::NUMERIC(10,4)) AS charDetails
+          FROM characteristic_reviews
+          INNER JOIN characteristics ON characteristics.id = characteristic_id
+          WHERE product_id = ${productId}
+          GROUP BY characteristics.id, characteristics.name
+          ORDER BY characteristics.id
+          )v
+        )
+        FROM characteristics
+        WHERE product_id = ${productId}
+        GROUP BY product_id
+      )t
+      `;
       pool.query(qryStr)
         .then((results) => {
-          const metaDataObj = {};
-          metaDataObj.product_id = productId;
-          metaDataObj.ratings = placeholder;
-          metaDataObj.recommended = placeholder;
-          metaDataObj.characteristics = placeholder;
-          res.status(200).json(metaDataObj);
+          res.status(200).send(results.rows);
         })
         .catch((err) => {
           res.status(400).send(err);
