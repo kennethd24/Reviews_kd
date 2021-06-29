@@ -24,7 +24,7 @@ CREATE TABLE reviews_photos
 (
     id serial PRIMARY KEY,
     review_id integer NOT NULL,
-    url character varying COLLATE pg_catalog."default" NOT NULL,
+    url character varying  NOT NULL,
 )
 
 \COPY reviews_photos

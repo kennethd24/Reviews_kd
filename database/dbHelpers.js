@@ -100,9 +100,23 @@ const dbHelpers = {
         recommend,
         name,
         email,
-        photos,
-        characteristics,
+        photos, // array of strings
+        characteristics, // object of key id and value integer
       } = req.body;
+      const timestamp = (new Date()).toISOString();
+      const qryStr = `
+      with newReview as (
+        insert into reviews
+          (product_id, rating, summary, body, recommend, reviewer_name, reviewer_email, date, helpfulness, reported)
+        values
+          (${productId}, ${rating}, "${summary}", "${body}", ${recommend}, "${name}", "${email}", ${timestamp}, 0, false)
+        returning id
+      )
+      insert into reviews_photos
+      (review_id, url)
+      SELECT (select * from newReview) review_id, x
+      FROM  unnest(ARRAY${photos}) x
+      `;
       pool.query(qryStr)
         .then(() => {
           res.status(200).send('Successful postReview');
