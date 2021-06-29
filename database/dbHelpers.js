@@ -49,7 +49,7 @@ const dbHelpers = {
             SELECT rating,
               COUNT(*) AS sumRatings
                 FROM reviews
-                WHERE product_id = ${productId}
+                WHERE product_id = ${productId} AND reviews.reported = false
                 GROUP BY rating
                 ORDER BY rating ASC
           )x
@@ -60,7 +60,7 @@ const dbHelpers = {
             SELECT recommend,
               COUNT(*) as counts
               FROM reviews
-              WHERE product_id = ${productId}
+              WHERE product_id = ${productId} AND reviews.reported = false
               GROUP BY recommend
               ORDER BY recommend ASC
           )u
