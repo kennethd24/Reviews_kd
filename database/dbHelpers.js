@@ -1,8 +1,9 @@
+const pgp = require('pg-promise')();
 const pool = require('./index');
 
 const dbHelpers = {
   reviews: {
-    getReviews: (req, res) => {
+    getReviews: async (req, res) => {
       const productId = req.params.productId || 2;
       const count = req.params.count || 5;
       const page = req.params.page || 1;
@@ -19,25 +20,25 @@ const dbHelpers = {
         )x
       ) AS photos
         FROM reviews
-        WHERE product_id = ${productId} AND reported = false
+        WHERE product_id = $1 AND reported = false
         ORDER BY date DESC
-        LIMIT ${count}
-        OFFSET ${count * (page - 1)}
+        LIMIT $2
+        OFFSET $3
       `;
-      pool.query(qryStr)
-        .then((resultsQuery) => {
-          const reviewsObj = {};
-          reviewsObj.product = productId;
-          reviewsObj.page = page;
-          reviewsObj.count = count;
-          reviewsObj.results = resultsQuery.rows;
-          res.status(200).json(reviewsObj);
-        })
-        .catch((err) => {
-          res.status(400).send(err);
-        });
+      try {
+        const offsetPage = (count * (page - 1));
+        const { rows } = await pool.query(qryStr, [productId, count, offsetPage]);
+        const reviewsObj = {};
+        reviewsObj.product = productId;
+        reviewsObj.page = page;
+        reviewsObj.count = count;
+        reviewsObj.results = rows;
+        res.status(200).json(reviewsObj);
+      } catch (err) {
+        res.status(400).send(err);
+      }
     },
-    getMetadata: (req, res) => {
+    getMetadata: async (req, res) => {
       const { productId } = req.params;
       const qryStr = `
       SELECT row_to_json(t) as queryResults
@@ -49,7 +50,7 @@ const dbHelpers = {
             SELECT rating,
               COUNT(*) AS sumRatings
                 FROM reviews
-                WHERE product_id = ${productId} AND reviews.reported = false
+                WHERE product_id = $1 AND reviews.reported = false
                 GROUP BY rating
                 ORDER BY rating ASC
           )x
@@ -60,7 +61,7 @@ const dbHelpers = {
             SELECT recommend,
               COUNT(*) as counts
               FROM reviews
-              WHERE product_id = ${productId} AND reviews.reported = false
+              WHERE product_id = $1 AND reviews.reported = false
               GROUP BY recommend
               ORDER BY recommend ASC
           )u
@@ -73,25 +74,24 @@ const dbHelpers = {
           'id', characteristics.id, 'value', AVG(value)::NUMERIC(10,4)) AS charDetails
           FROM characteristic_reviews
           INNER JOIN characteristics ON characteristics.id = characteristic_id
-          WHERE product_id = ${productId}
+          WHERE product_id = $1
           GROUP BY characteristics.id, characteristics.name
           ORDER BY characteristics.id
           )v
         )
         FROM characteristics
-        WHERE product_id = ${productId}
+        WHERE product_id = $1
         GROUP BY product_id
       )t
       `;
-      pool.query(qryStr)
-        .then((results) => {
-          res.status(200).send(results.rows);
-        })
-        .catch((err) => {
-          res.status(400).send(err);
-        });
+      try {
+        const { rows } = await pool.query(qryStr, [productId]);
+        res.status(200).send(rows[0].queryresults);
+      } catch (err) {
+        res.status(400).send(err);
+      }
     },
-    postReview: (req, res) => {
+    postReview: async (req, res) => {
       const {
         productId,
         rating,
@@ -100,52 +100,57 @@ const dbHelpers = {
         recommend,
         name,
         email,
-        photos, // array of strings
-        characteristics, // object of key id and value integer
+        photos,
+        characteristics,
       } = req.body;
-      const timestamp = (new Date()).toISOString();
       const qryStr = `
-      with newReview as (
-        insert into reviews
-          (product_id, rating, summary, body, recommend, reviewer_name, reviewer_email, date, helpfulness, reported)
-        values
-          (${productId}, ${rating}, "${summary}", "${body}", ${recommend}, "${name}", "${email}", ${timestamp}, 0, false)
+      WITH newReview AS (
+        INSERT INTO reviews
+        (product_id, rating, summary, body, recommend, reviewer_name, reviewer_email, date)
+        VALUES
+        ($1 , $2, $3, $4, $5, $6, $7, current_timestamp)
         returning id
-      )
-      insert into reviews_photos
-      (review_id, url)
-      SELECT (select * from newReview) review_id, x
-      FROM  unnest(ARRAY${photos}) x
-      `;
-      pool.query(qryStr)
-        .then(() => {
-          res.status(200).send('Successful postReview');
-        })
-        .catch((err) => {
-          res.status(400).send(err);
-        });
+        ), charArr AS (
+        SELECT (select * from newReview) AS review_id,
+          d.key::text::int AS characteristic_id,
+          d.value::text::int AS value
+          FROM json_each($8::json)d
+        ), setupChar as (
+          INSERT INTO characteristic_reviews (review_id, characteristic_id, value)
+          SELECT * FROM charArr
+          )
+          insert into reviews_photos
+          (review_id, url)
+          SELECT (select * from newReview) review_id, x
+          FROM  unnest(array[$9]) x
+          `;
+      try {
+        await pool.query(qryStr,
+          [productId, rating, summary, body, recommend, name, email, characteristics, photos]);
+        res.status(200).send('Successful postReview');
+      } catch (err) {
+        res.status(400).send(err);
+      }
     },
-    updateHelpfulReview: (req, res) => {
+    updateHelpfulReview: async (req, res) => {
       const { reviewId } = req.params;
-      const qryStr = `UPDATE reviews SET helpfulness = helpfulness + 1 WHERE id = ${reviewId}`;
-      pool.query(qryStr)
-        .then(() => {
-          res.status(200).send('Successful updateHelpfulReview');
-        })
-        .catch((err) => {
-          res.status(400).send(err);
-        });
+      const qryStr = 'UPDATE reviews SET helpfulness = helpfulness + 1 WHERE id = $1';
+      try {
+        await pool.query(qryStr, [reviewId]);
+        res.status(200).send('Successful updateHelpful');
+      } catch (err) {
+        res.status(400).send(err);
+      }
     },
-    reportReview: (req, res) => {
+    reportReview: async (req, res) => {
       const { reviewId } = req.params;
-      const qryStr = `UPDATE reviews SET reported = true where id = ${reviewId}`;
-      pool.query(qryStr)
-        .then(() => {
-          res.status(200).send('Successful reportReview');
-        })
-        .catch((err) => {
-          res.status(400).send(err);
-        });
+      const qryStr = 'UPDATE reviews SET reported = true where id = $1';
+      try {
+        await pool.query(qryStr, [reviewId]);
+        res.status(200).send('sucessful reported!');
+      } catch (err) {
+        res.status(400).send(err);
+      }
     },
   },
 };

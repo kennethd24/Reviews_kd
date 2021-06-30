@@ -8,4 +8,6 @@ pool.connect((err) => (
   err ? console.error(err) : console.log('PostgreSQL Database Connected')
 ));
 
-module.exports = pool;
+module.exports = {
+  query: (text, params) => pool.query(text, params),
+};
