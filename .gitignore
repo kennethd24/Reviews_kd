@@ -2,4 +2,4 @@ reviewsCSV
 package-lock.json
 node_modules
 config.js
-sdcken.cer
+sdcken.pem
